@@ -13,6 +13,7 @@
     --accent: #2481cc; --accent-text: #ffffff;
     --overlay: rgba(0,0,0,0.5); --qty-bg: #e5e5e5;
     --remove-bg: #ffdddd; --remove-text: #c00; --divider: #eee;
+    --green: #22c55e;
   }
   body.dark {
     --bg: #0f0f14; --text: #ffffff; --card-bg: #1c1c22;
@@ -130,6 +131,43 @@
     border-radius: 12px; border: none; background: transparent;
     color: var(--muted); font-size: 14px; cursor: pointer;
   }
+
+  /* Окно "Оформление заказа" */
+  .checkout h2 { margin: 0 0 4px 0; font-size: 20px; }
+  .checkout .subtitle {
+    font-size: 13px; color: var(--muted); margin: 0 0 16px 0;
+  }
+  .step {
+    display: flex; gap: 10px;
+    padding: 12px; border-radius: 10px;
+    background: var(--card-bg); margin-bottom: 8px;
+  }
+  .step-num {
+    flex-shrink: 0;
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--accent); color: var(--accent-text);
+    font-size: 14px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .step-text {
+    font-size: 13px; line-height: 1.45;
+  }
+  .step-text b { font-weight: 700; }
+  .step-text .link {
+    color: var(--accent); text-decoration: none;
+    font-weight: 600;
+  }
+  .step-text .amount {
+    color: var(--green); font-weight: 700;
+  }
+  .final-note {
+    margin-top: 14px; margin-bottom: 6px;
+    text-align: center; font-size: 14px; font-weight: 600;
+    color: var(--green);
+  }
+  .checkout .close {
+    margin-top: 10px;
+  }
 </style>
 </head>
 <body class="dark">
@@ -146,10 +184,56 @@
   🛒 Корзина <span id="cartCount"></span>
 </button>
 
+<!-- Корзина -->
 <div class="overlay" id="overlay" onclick="closeCart(event)">
   <div class="cart" onclick="event.stopPropagation()">
-    <h2>Корзина</h2>
-    <div id="cartContent"></div>
+    <div id="cartView">
+      <h2>Корзина</h2>
+      <div id="cartContent"></div>
+    </div>
+
+    <!-- Окно оформления заказа -->
+    <div id="checkoutView" class="checkout" style="display:none;">
+      <h2>Оформление заказа</h2>
+      <p class="subtitle">Следуй пунктам ниже</p>
+
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-text">
+          Убедитесь, что на вашем балансе достаточно звёзд
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-text">
+          Напишите в личку <span class="link">@krayverov</span>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-text">
+          Отправьте звёзды подарками на сумму в корзине
+          (<span class="amount" id="checkoutAmount">0</span> ⭐)
+          и отметьте под 1 из подарков то, что вы купили.
+          <br>Пример: колечко и ракету с подписью «за деф»
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-text">
+          Ожидайте проверки и выдачи заказа вплоть до 4 часов.
+          Если мы опоздаем — вернём <b>10%</b> от заказа
+          на все товары, кроме NFT.
+        </div>
+      </div>
+
+      <div class="final-note">Удачных покупок 🛍️</div>
+
+      <button class="close" onclick="backToCart()">← Назад в корзину</button>
+    </div>
   </div>
 </div>
 
@@ -202,6 +286,14 @@
       description: "рандом нфт выше или ниже своей цены на блэк фоне",
       image: "https://i.ibb.co/7tNrN4Kt/Lg-Kj-XAj-Ea-Bpprqqyrxq1x8k-PE-q1-U9ghy0b7utxnald3a-KSPv-Iof5-L4-BKeirm5-Z27-Bv6-L-lw1ze61ri-QAKBzp-RD.jpg",
       noCommission: false
+    },
+    {
+      id: 7,
+      name: "бот по дешёвой аренде нфт",
+      price: 15,
+      description: "2 звезды за 3 дня нфт",
+      image: "https://i.ibb.co/bMWjbZLY/GMSBiqf-SCob-Aq1ejk-JEy-AXke8-K4n-Tpy-Wo-Zv-W3zh-F30-Edh8plgf7-Zw-MDo-Ks-Tx-LDX8d-Z3-Nw-Cu7j-Gr-IFPx-Kr.jpg",
+      noCommission: true
     }
   ];
 
@@ -308,7 +400,7 @@
         ${comm > 0 ? `<div class="row commission"><span>Комиссия Telegram (+20%):</span><span>+${comm.toFixed(0)} ⭐</span></div>` : ""}
         <div class="row final"><span>Итого:</span><span>${total.toFixed(0)} ⭐</span></div>
       </div>
-      <button class="order" onclick="sendOrder()">Оформить заказ</button>
+      <button class="order" onclick="showCheckout()">Оформить заказ</button>
       <button class="close" onclick="closeCart()">Закрыть</button>
     `;
     c.innerHTML = itemsHtml;
@@ -316,12 +408,31 @@
 
   function openCart() {
     renderCart();
+    showCartView();
     document.getElementById("overlay").classList.add("open");
   }
 
   function closeCart(e) {
     if (e && e.target.id !== "overlay" && e.target.className !== "close") return;
     document.getElementById("overlay").classList.remove("open");
+  }
+
+  function showCartView() {
+    document.getElementById("cartView").style.display = "block";
+    document.getElementById("checkoutView").style.display = "none";
+  }
+
+  function showCheckout() {
+    if (cart.length === 0) return;
+    // Подставляем итоговую сумму
+    document.getElementById("checkoutAmount").textContent = totalSum().toFixed(0);
+    document.getElementById("cartView").style.display = "none";
+    document.getElementById("checkoutView").style.display = "block";
+  }
+
+  function backToCart() {
+    showCartView();
+    renderCart();
   }
 
   function sendOrder() {
